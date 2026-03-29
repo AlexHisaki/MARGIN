@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MARGIN</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #111;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            margin-top: 20px;
+            width: 400px;
+            height: 600px;
+        }
+
+        canvas {
+            background-color: #222;
+            display: block;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+            border: 2px solid #444;
+            border-radius: 5px;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #score-display {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            color: #eee;
+        }
+
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            border-radius: 5px;
+        }
+
+        #game-over-screen h1 {
+            color: #ff4d4d;
+            margin: 0 0 20px 0;
+            font-size: 48px;
+            text-shadow: 0 0 10px #ff4d4d;
+            letter-spacing: 2px;
+        }
+
+        #final-score {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #333;
+            color: #fff;
+            border: 2px solid #555;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background-color: #555;
+            border-color: #777;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #retry-btn {
+            background-color: #3498db;
+            border-color: #2980b9;
+        }
+
+        #retry-btn:hover {
+            background-color: #2980b9;
+        }
+
+        #share-x-btn {
+            background-color: #000;
+            border-color: #333;
+        }
+
+        #share-x-btn:hover {
+            background-color: #111;
+        }
+
+        #title-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        #title-screen h1 {
+            color: #3498db;
+            margin: 0 0 20px 0;
+            font-size: 40px;
+            text-shadow: 0 0 10px #3498db;
+            text-align: center;
+        }
+
+        #title-screen .blink {
+            color: #fff;
+            font-size: 20px;
+            animation: blinker 1s linear infinite;
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        #phase-announcement {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 20;
+            white-space: nowrap;
+        }
+
+        #rule-screen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            pointer-events: auto;
+            z-index: 15;
+            text-align: center;
+        }
+
+        #rule-screen h2 {
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+
+        #rule-screen ul {
+            text-align: left;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        #rule-screen li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="ui-layer">
+            <div id="phase-announcement"></div>
+            <div id="title-screen">
+                <h1>MARGIN</h1>
+                <div class="btn-group">
+                    <button id="start-btn"
+                        style="background-color: #3498db; border-color: #2980b9; margin-bottom: 10px;">スタート</button>
+                    <button id="rules-btn">ルール説明</button>
+                </div>
+                <div class="blink" style="margin-top: 20px; font-size: 14px; color: #888;">または何かキーを押して開始</div>
+            </div>
+            <div id="rule-screen">
+                <h2>遊び方</h2>
+                <ul>
+                    <li><strong>移動:</strong> 矢印キー または A / D キー</li>
+                    <li><strong>スコア:</strong> 1秒ごとに 1点 加算</li>
+                    <li><strong>ボーナス:</strong> 敵を近くで避ける（かすめる）とスコアが高速アップ！</li>
+                    <li><strong>ゲーム終了:</strong> 敵に当たるとゲームオーバー</li>
+                </ul>
+                <button id="back-to-title-btn" style="transform: none !important;">戻る</button>
+            </div>
+            <div id="score-display">スコア: 0</div>
+            <div id="game-over-screen">
+                <h1>GAME OVER</h1>
+                <div id="final-score">最終スコア: 0</div>
+                <div class="btn-group">
+                    <button id="retry-btn">リトライ (R)</button>
+                    <button id="share-x-btn">Xでシェア</button>
+                    <button id="copy-btn">スコアをコピー</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const titleScreen = document.getElementById('title-screen');
+        const ruleScreen = document.getElementById('rule-screen');
+        const phaseAnnouncement = document.getElementById('phase-announcement');
+
+        // Game state
+        let gameState = 'title'; // 'title', 'playing', 'gameover'
+        let isGameOver = false;
+        let score = 0; // 実数で管理
+        let frames = 0;
+        let animationId;
+        let flashOpacity = 0;
+        let isGrazing = false; // かすり判定中フラグ
+
+        let visualPhase = 0;
+        let playerColor = '#3498db';
+        let enemyColor = '#e74c3c';
+
+        // Entities
+        const player = {
+            x: 200,
+            y: 550,
+            size: 24,
+            hitRadius: 10,   // 当たり判定半径
+            grazeRadius: 32, // かすり判定半径
+            color: '#3498db',
+            speed: 6
+        };
+
+        let enemies = [];
+
+        // Controls
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            a: false,
+            d: false
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (gameState === 'title') {
+                startGame();
+                return;
+            }
+
+            if (gameState === 'rules') return; // ルール画面中はキー入力を無視（戻るボタンのみ有効）
+
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+            if (e.key === 'r' || e.key === 'R') {
+                if (isGameOver) startGame();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+        });
+
+        // Sub-systems
+        document.getElementById('retry-btn').addEventListener('click', startGame);
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('rules-btn').addEventListener('click', showRules);
+        document.getElementById('back-to-title-btn').addEventListener('click', hideRules);
+
+        function showRules() {
+            console.log('Showing rules...');
+            gameState = 'rules';
+            titleScreen.style.display = 'none';
+            ruleScreen.style.display = 'flex';
+        }
+
+        function hideRules(e) {
+            if (e) e.stopPropagation();
+            console.log('Hiding rules, returning to title...');
+            gameState = 'title';
+            titleScreen.style.display = 'flex';
+            ruleScreen.style.display = 'none';
+        }
+
+        function getShareText() {
+            return `#SimpleDodge でスコア${score}（秒）達成！\n白熱の落下物避けアクション！`;
+        }
+
+        document.getElementById('share-x-btn').addEventListener('click', () => {
+            const text = encodeURIComponent(getShareText());
+            const url = `https://twitter.com/intent/tweet?text=${text}`;
+            window.open(url, '_blank');
+        });
+
+        document.getElementById('copy-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(getShareText()).then(() => {
+                alert('クリップボードにスコアをコピーしました！');
+            }).catch(err => {
+                alert('コピーに失敗しました...');
+            });
+        });
+
+        function spawnEnemy() {
+            // サイズのバリエーション
+            const size = Math.random() * 15 + 10;
+            const x = Math.random() * (canvas.width - size * 2) + size;
+
+            // 難易度による速度上昇（スコアが進むほどベースとランダム幅が上がる）
+            const speedMultiplier = 1 + (score * 0.05);
+            const speed = (Math.random() * 3 + 2) * speedMultiplier;
+
+            enemies.push({ x, y: -size, size, color: enemyColor, speed });
+        }
+
+        function checkCollision(enemy) {
+            // 円(敵)と円(自機判定半径)の当たり判定
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 当たり判定 (半径の合計より小さいか)
+            if (distance < player.hitRadius + enemy.size) {
+                return "hit";
+            }
+
+            // かすり判定
+            if (distance < player.grazeRadius + enemy.size) {
+                return "graze";
+            }
+
+            return "none";
+        }
+
+        function update() {
+            if (isGameOver) return;
+
+            // --- Player movement ---
+            if (keys.ArrowLeft || keys.a) {
+                player.x -= player.speed;
+            }
+            if (keys.ArrowRight || keys.d) {
+                player.x += player.speed;
+            }
+
+            // Boundary constraint
+            if (player.x < player.size / 2) player.x = player.size / 2;
+            if (player.x > canvas.width - player.size / 2) player.x = canvas.width - player.size / 2;
+
+            // --- Game logic ---
+            frames++;
+            isGrazing = false; // フラグリセット
+
+            // 60フレーム(約1秒)ごとに生存ボーナス (1点)
+            if (frames % 60 === 0) {
+                score += 1.0;
+            }
+
+            // --- Update enemies & Collision ---
+            for (let i = 0; i < enemies.length; i++) {
+                const e = enemies[i];
+                e.y += e.speed;
+
+                const collisionResult = checkCollision(e);
+                if (collisionResult === "hit") {
+                    gameOver();
+                    return;
+                } else if (collisionResult === "graze") {
+                    isGrazing = true;
+                    score += 0.12; // かすりボーナス (1フレームにつき0.12点に調整)
+                }
+
+                // Remove if off screen
+                if (e.y - e.size > canvas.height) {
+                    enemies.splice(i, 1);
+                    i--;
+                }
+            }
+
+            // --- Spawn logic ---
+            // 難易度調整（かすりボーナスでスコアが伸びやすいため、上昇係数を0.8に緩和）
+            let spawnRate = 60 - Math.floor(score * 0.8);
+            if (spawnRate < 10) spawnRate = 10;
+
+            if (frames % spawnRate === 0) {
+                spawnEnemy();
+            }
+
+            // スコア表示の更新とフェーズチェック
+            scoreDisplay.textContent = `スコア: ${Math.floor(score)}`;
+            checkPhaseTransition();
+        }
+
+        function draw() {
+            // テーマの適用（毎フレーム更新が必要な場合のため）
+            applyVisualTheme();
+
+            // 背景クリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 自機の描画
+            // かすり中は白く光る
+            if (isGrazing) {
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = "#ffffff";
+                // かすり中のみ少し大きく表示
+                ctx.fillRect(
+                    player.x - (player.size + 4) / 2,
+                    player.y - (player.size + 4) / 2,
+                    player.size + 4,
+                    player.size + 4
+                );
+            } else {
+                ctx.fillStyle = playerColor;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = playerColor;
+                ctx.fillRect(
+                    player.x - player.size / 2,
+                    player.y - player.size / 2,
+                    player.size,
+                    player.size
+                );
+            }
+
+            // 敵の描画
+            enemies.forEach(e => {
+                // 色を現在のテーマに合わせる（既存の敵も色が変わるように）
+                e.color = enemyColor;
+                ctx.fillStyle = e.color;
+                ctx.shadowColor = e.color;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // リセットシャドウ
+            ctx.shadowBlur = 0;
+
+            // フラッシュ演出
+            if (flashOpacity > 0) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${flashOpacity})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                flashOpacity -= 0.05;
+                if (flashOpacity < 0) flashOpacity = 0;
+            }
+        }
+
+        function checkPhaseTransition() {
+            let nextPhase = 0;
+            if (score >= 200) nextPhase = 3;
+            else if (score >= 100) nextPhase = 2;
+            else if (score >= 50) nextPhase = 1;
+
+            if (nextPhase !== visualPhase) {
+                visualPhase = nextPhase;
+                announcePhase(visualPhase);
+                flashOpacity = 1.0;
+            }
+        }
+
+        function announcePhase(phase) {
+            const names = ["NORMAL", "SEPIA NOSTALGY", "INVERTED WORLD", "PSYCHEDELIC"];
+            phaseAnnouncement.textContent = `PHASE: ${names[phase]}`;
+            phaseAnnouncement.style.opacity = '1';
+            setTimeout(() => {
+                phaseAnnouncement.style.opacity = '0';
+            }, 2000);
+        }
+
+        function applyVisualTheme() {
+            let filter = "none";
+
+            switch (visualPhase) {
+                case 0:
+                    playerColor = '#3498db';
+                    enemyColor = '#e74c3c';
+                    break;
+                case 1:
+                    filter = "sepia(1)";
+                    playerColor = '#d35400';
+                    enemyColor = '#7f8c8d';
+                    break;
+                case 2:
+                    filter = "invert(1)";
+                    playerColor = '#2980b9'; // 反転後を考慮
+                    enemyColor = '#c0392b';
+                    break;
+                case 3:
+                    const hue = (Date.now() / 10) % 360;
+                    filter = `hue-rotate(${hue}deg)`;
+                    playerColor = `hsl(${(hue + 200) % 360}, 70%, 50%)`;
+                    enemyColor = `hsl(${(hue + 0) % 360}, 70%, 50%)`;
+                    break;
+            }
+
+            canvas.style.filter = filter;
+        }
+
+        function gameLoop() {
+            update();
+            if (!isGameOver) {
+                draw();
+                animationId = requestAnimationFrame(gameLoop);
+            } else {
+                // ゲームオーバー時は最後の状態を描画したままにする
+                draw();
+            }
+        }
+
+        function gameOver() {
+            isGameOver = true;
+            gameOverScreen.style.display = 'flex';
+            finalScoreDisplay.textContent = `最終スコア: ${Math.floor(score)}`;
+            cancelAnimationFrame(animationId);
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            isGameOver = false;
+            score = 0;
+            frames = 0;
+            enemies = [];
+            player.x = canvas.width / 2;
+            visualPhase = 0;
+            applyVisualTheme();
+
+            scoreDisplay.textContent = `スコア: ${score}`;
+            titleScreen.style.display = 'none';
+            ruleScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+
+            // 前回のループが残っていればキャンセル
+            cancelAnimationFrame(animationId);
+
+            // ループ再開
+            gameLoop();
+        }
+
+        function initTitle() {
+            gameState = 'title';
+            titleScreen.style.display = 'flex';
+            ruleScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+
+            player.x = canvas.width / 2;
+            enemies = [];
+            visualPhase = 0;
+            applyVisualTheme();
+
+            cancelAnimationFrame(animationId);
+            titleLoop();
+        }
+
+        function titleLoop() {
+            if (gameState !== 'title') return;
+            draw();
+
+            if (flashOpacity > 0) {
+                animationId = requestAnimationFrame(titleLoop);
+            }
+        }
+
+        // 初回起動
+        initTitle();
+    </script>
+</body>
+
+</html>
